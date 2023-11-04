@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 
 class SelfAttention(nn.Module):
-  def __init__(self, embedding_dim, heads):
+  def __init__(self, embedding_dim, heads, qkv_bias=False):
     super(SelfAttention, self).__init__()
     
     self.embedding_dim = embedding_dim
@@ -12,23 +12,23 @@ class SelfAttention(nn.Module):
     
     assert (self.head_dim * heads == embedding_dim), "Embedding dimension must be perfectly divisible by number of heads"
 
-    self.keys = nn.Linear(self.head_dim, self.head_dim, bias=False)
-    self.queries = nn.Linear(self.head_dim, self.head_dim, bias=False)
-    self.values = nn.Linear(self.head_dim, self.head_dim, bias=False)
+    self.queries = nn.Linear(self.head_dim, self.head_dim, bias=qkv_bias)
+    self.keys = nn.Linear(self.head_dim, self.head_dim, bias=qkv_bias)
+    self.values = nn.Linear(self.head_dim, self.head_dim, bias=qkv_bias)
     
     self.fc_out = nn.Linear(embedding_dim, embedding_dim) # after concatenating output from all heads, input_dim will be head_dim*heads
     
-  def forward(self, key, query, value, mask):
+  def forward(self, key, query, value, mask=None):
     N = query.shape[0] # N is batch size (number of examples that are fed into the encoder at a time)
     key_len, query_len, value_len = key.shape[1], query.shape[1], value.shape[1]
     
     # split embedding into self.heads pieces (embedding_dim==heads*head_dim)
-    key = key.reshape(N, key_len, self.heads, self.head_dim)
     query = query.reshape(N, query_len, self.heads, self.head_dim)
+    key = key.reshape(N, key_len, self.heads, self.head_dim)
     value = value.reshape(N, value_len, self.heads, self.head_dim)
     
-    key = self.keys(key)
     query = self.queries(query)
+    key = self.keys(key)
     value = self.values(value)
     
     # multiply query and key -> einsum is similar to matmul, but is much easier
